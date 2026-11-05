@@ -1,19 +1,28 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "frappe2ontology"
-version = "0.1.0"
+authors = [{ name = "Neotec", email = "jamunachi007@gmail.com" }]
 description = "Export Frappe/ERPNext DocType metadata as an NVIDIA Auto Ontology model"
 requires-python = ">=3.10"
-dependencies = ["pyyaml>=6", "mysql-connector-python>=8"]
+readme = "README.md"
+dynamic = ["version"]
+# PyYAML and requests ship with Frappe; listed for the standalone CLI.
+dependencies = ["PyYAML>=6", "requests>=2"]
 
 [project.optional-dependencies]
-test = ["pytest", "sqlglot", "pydantic>=2"]
+# Only needed to run the CLI outside a bench against a site database.
+standalone = ["mysql-connector-python>=8"]
+test = ["pytest", "sqlglot", "pydantic>=2", "mysql-connector-python>=8"]
 
 [project.scripts]
 frappe2ontology = "frappe2ontology.cli:main"
 
-[tool.setuptools]
-packages = ["frappe2ontology"]
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<17.0.0"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"

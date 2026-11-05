@@ -1,4 +1,9 @@
-"""Command line: ``frappe2ontology --db-name <site_db> ... -o model.yaml``."""
+"""Command line, for use outside a bench: ``frappe2ontology --site-db ... -o model.yaml``.
+
+Inside a bench, use the **Ontology Export Settings** page instead, or::
+
+    bench --site <site> execute frappe2ontology.api.export_to_file --kwargs "{'path': '/tmp/model.yaml'}"
+"""
 
 from __future__ import annotations
 
@@ -7,9 +12,8 @@ import logging
 import sys
 from urllib.parse import unquote, urlparse
 
-import yaml
-
-from frappe2ontology import build, measures, meta
+from frappe2ontology import build, meta
+from frappe2ontology.export import make_export
 
 
 def _connect_kwargs(url: str) -> dict:
@@ -34,8 +38,8 @@ def main(argv: list[str] | None = None) -> int:
     src.add_argument(
         "--site-db",
         metavar="MYSQL_URL",
-        help="Read metadata from a live site: mysql://user:pass@host:3306/<site_db>. "
-        "Includes Custom Fields and Property Setters (recommended).",
+        help="Read metadata from a site database: mysql://user:pass@host:3306/<site_db>. "
+        "Includes Custom Fields and Property Setters. Needs mysql-connector-python.",
     )
     src.add_argument(
         "--apps",
@@ -58,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--exclude-regex",
         default=build.DEFAULT_EXCLUDE,
-        help="Drop DocTypes whose name matches (default: %(default)r). '' to keep all.",
+        help="Drop DocTypes whose name matches. '' to keep all.",
     )
     p.add_argument(
         "--with-link-targets",
@@ -83,41 +87,26 @@ def main(argv: list[str] | None = None) -> int:
     if not doctypes:
         raise SystemExit("No DocTypes found.")
 
-    sel = build.select_doctypes(
-        doctypes,
-        modules=args.modules,
-        include=args.include,
-        exclude_regex=args.exclude_regex or None,
-        with_link_targets=args.with_link_targets,
-    )
-    names = set(sel.doctypes)
-    model = build.build_model(
-        sel,
-        db_name,
-        measures=[] if args.no_measures else measures.applicable(measures.MEASURES, names),
-        analyses=[] if args.no_measures else measures.applicable(measures.ANALYSES, names),
-    )
-    problems = build.check_references(model)
-    if problems:
-        for prob in problems[:20]:
-            print(f"dangling reference: {prob}", file=sys.stderr)
+    try:
+        result = make_export(
+            doctypes,
+            db_name,
+            modules=args.modules,
+            include=args.include,
+            exclude_regex=args.exclude_regex,
+            with_link_targets=args.with_link_targets,
+            include_measures=not args.no_measures,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 1
 
-    text = yaml.safe_dump(model, sort_keys=False, allow_unicode=True, width=100)
     if args.output == "-":
-        sys.stdout.write(text)
+        sys.stdout.write(result.yaml_text)
     else:
         with open(args.output, "w", encoding="utf-8") as handle:
-            handle.write(text)
-    sl, dl = model["semantic_layer"], model["data_layer"]
-    print(
-        f"{len(sl['terms'])} terms, "
-        f"{sum(len(t['columns_attributes']) for t in sl['terms'])} columns, "
-        f"{len(dl['foreign_keys'])} foreign keys, {len(dl['joins'])} joins, "
-        f"{len(sl['sql_attributes']['manual'])} measures, "
-        f"{len(sl['custom_analyses'])} analyses",
-        file=sys.stderr,
-    )
+            handle.write(result.yaml_text)
+    print(result.summary, file=sys.stderr)
     return 0
 
 

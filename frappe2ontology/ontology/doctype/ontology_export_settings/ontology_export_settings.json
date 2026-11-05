@@ -1,0 +1,144 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-05 10:30:00.000000",
+ "description": "Export this site's DocType metadata as an NVIDIA Auto Ontology model.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "scope_section",
+  "modules",
+  "include_doctypes",
+  "column_break_scope",
+  "exclude_regex",
+  "with_link_targets",
+  "include_measures",
+  "auto_ontology_section",
+  "auto_ontology_url",
+  "api_token",
+  "column_break_ao",
+  "replace_existing",
+  "last_run_section",
+  "last_run_on",
+  "last_run_summary"
+ ],
+ "fields": [
+  {
+   "fieldname": "scope_section",
+   "fieldtype": "Section Break",
+   "label": "What to Export"
+  },
+  {
+   "default": "Selling\nBuying\nAccounts\nStock\nSetup",
+   "description": "One module per line. Child tables of included DocTypes are added automatically.",
+   "fieldname": "modules",
+   "fieldtype": "Small Text",
+   "label": "Modules",
+   "reqd": 1
+  },
+  {
+   "description": "Extra DocTypes to include, one per line, e.g. Employee (excluded by default because it holds personal data).",
+   "fieldname": "include_doctypes",
+   "fieldtype": "Small Text",
+   "label": "Also Include DocTypes"
+  },
+  {
+   "fieldname": "column_break_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "( Log| Settings| Tool)$|^(Employee|Repost |Process |Transaction Deletion|Bisect |Ledger Health|Ledger Merge|Bank Statement Import|Email Digest)",
+   "description": "DocTypes whose name matches this regular expression are left out. Clear it to keep everything.",
+   "fieldname": "exclude_regex",
+   "fieldtype": "Data",
+   "label": "Exclude DocTypes Matching",
+   "length": 500
+  },
+  {
+   "default": "0",
+   "description": "Also include tables that the chosen DocTypes link to, such as Currency, UOM and Territory.",
+   "fieldname": "with_link_targets",
+   "fieldtype": "Check",
+   "label": "Include Linked Tables"
+  },
+  {
+   "default": "1",
+   "description": "Add the built-in ERPNext measures (net sales, receivables, GL balance, stock on hand...). Review them before certifying in Auto Ontology.",
+   "fieldname": "include_measures",
+   "fieldtype": "Check",
+   "label": "Include Business Measures"
+  },
+  {
+   "fieldname": "auto_ontology_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Ontology"
+  },
+  {
+   "description": "Web app address, e.g. https://ontology.example.com (port 3000 on a default install).",
+   "fieldname": "auto_ontology_url",
+   "fieldtype": "Data",
+   "label": "Auto Ontology URL",
+   "options": "URL"
+  },
+  {
+   "description": "Create one in Auto Ontology under your user menu, API Tokens. The user needs the model import permission.",
+   "fieldname": "api_token",
+   "fieldtype": "Password",
+   "label": "API Token",
+   "length": 500
+  },
+  {
+   "fieldname": "column_break_ao",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "When on, Auto Ontology deletes terms and measures for this database that are not in the uploaded model. Leave off unless you mean to replace edits made in Auto Ontology.",
+   "fieldname": "replace_existing",
+   "fieldtype": "Check",
+   "label": "Replace Existing Definitions"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "last_run_section",
+   "fieldtype": "Section Break",
+   "label": "Last Run"
+  },
+  {
+   "fieldname": "last_run_on",
+   "fieldtype": "Datetime",
+   "label": "Last Run On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_run_summary",
+   "fieldtype": "Small Text",
+   "label": "Last Run Summary",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-05 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ontology",
+ "name": "Ontology Export Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

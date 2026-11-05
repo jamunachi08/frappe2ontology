@@ -9,7 +9,11 @@ Both sources produce the same plain structures (:class:`DocType`,
 * **Live mode** reads ``tabDocType``, ``tabDocField``, ``tabCustom Field`` and
   ``tabProperty Setter`` from the site's MariaDB database, and checks every
   column against ``information_schema`` so only columns that really exist are
-  emitted. Use this for a real site.
+  emitted. Use this from outside a bench.
+* **In-bench mode** (:func:`load_from_frappe`) asks Frappe itself through
+  ``frappe.get_meta``, which already merges Custom Fields and Property
+  Setters exactly as the forms show them. This is what the app's Settings
+  page and API use.
 """
 
 from __future__ import annotations
@@ -173,6 +177,72 @@ def _select_existing(cursor: Any, table: str, wanted: list[str]) -> list[dict]:
     return [dict(zip(names, row)) for row in cursor.fetchall()]
 
 
+def _attach_db_columns(doctypes: dict[str, DocType], rows: Iterable[tuple]) -> None:
+    """Record each table's real columns and types, from information_schema rows."""
+    by_table: dict[str, dict[str, str]] = {}
+    for table, column, ctype in rows:
+        by_table.setdefault(table, {})[column] = ctype
+    for dt in doctypes.values():
+        dt.db_columns = by_table.get(dt.table_name)
+        if dt.db_columns:
+            for fld in dt.fields:
+                fld.db_type = dt.db_columns.get(fld.fieldname, "")
+
+
+_INFO_SCHEMA_COLUMNS = (
+    "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.columns "
+    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'tab%'"
+)
+
+
+def load_from_frappe() -> dict[str, DocType]:
+    """Read metadata through the running Frappe site (call inside a request or
+    ``bench execute``). Custom Fields and Property Setters are already applied
+    by ``frappe.get_meta``."""
+    import frappe  # only available inside a bench
+
+    module_app = {
+        m.name: m.app_name or ""
+        for m in frappe.get_all("Module Def", fields=["name", "app_name"])
+    }
+    doctypes: dict[str, DocType] = {}
+    for name in frappe.get_all("DocType", pluck="name"):
+        try:
+            m = frappe.get_meta(name)
+        except Exception as exc:  # a DocType whose controller fails to import
+            logger.warning("Skipping %s: %s", name, exc)
+            continue
+        dt = DocType(
+            name=m.name,
+            module=m.module or "",
+            app=module_app.get(m.module, ""),
+            description=m.description or "",
+            istable=bool(m.istable),
+            issingle=bool(m.issingle),
+            is_virtual=bool(getattr(m, "is_virtual", 0)),
+            is_submittable=bool(m.is_submittable),
+            autoname=m.autoname or "",
+        )
+        for df in m.fields:
+            if not df.fieldname:
+                continue
+            dt.fields.append(
+                Field(
+                    fieldname=df.fieldname,
+                    fieldtype=df.fieldtype or "Data",
+                    label=df.label or "",
+                    options=str(df.options or ""),
+                    description=df.description or "",
+                    fetch_from=getattr(df, "fetch_from", "") or "",
+                    is_virtual=bool(getattr(df, "is_virtual", 0)),
+                    custom=bool(getattr(df, "is_custom_field", 0)),
+                )
+            )
+        doctypes[dt.name] = dt
+    _attach_db_columns(doctypes, frappe.db.sql(_INFO_SCHEMA_COLUMNS))
+    return doctypes
+
+
 def load_from_db(connect_kwargs: dict[str, Any]) -> dict[str, DocType]:
     """Read DocType metadata, customisations and real columns from a site DB."""
     import mysql.connector  # imported lazily: JSON mode needs no driver
@@ -246,18 +316,8 @@ def load_from_db(connect_kwargs: dict[str, Any]) -> dict[str, DocType]:
                 if fld.fieldname == row["field_name"]:
                     setattr(fld, prop, value)
 
-        cursor.execute(
-            "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.columns "
-            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'tab%'"
-        )
-        by_table: dict[str, dict[str, str]] = {}
-        for table, column, ctype in cursor.fetchall():
-            by_table.setdefault(table, {})[column] = ctype
-        for dt in doctypes.values():
-            dt.db_columns = by_table.get(dt.table_name)
-            if dt.db_columns:
-                for fld in dt.fields:
-                    fld.db_type = dt.db_columns.get(fld.fieldname, "")
+        cursor.execute(_INFO_SCHEMA_COLUMNS)
+        _attach_db_columns(doctypes, cursor.fetchall())
         return doctypes
     finally:
         connection.close()
