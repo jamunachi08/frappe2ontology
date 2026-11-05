@@ -18,6 +18,26 @@
   "api_token",
   "column_break_ao",
   "replace_existing",
+  "create_connection",
+  "db_access_section",
+  "ro_db_host",
+  "ro_db_port",
+  "column_break_db",
+  "ro_db_user",
+  "ro_db_password",
+  "ai_section",
+  "llm_provider",
+  "llm_endpoint",
+  "llm_model",
+  "llm_api_key",
+  "column_break_ai",
+  "nvidia_api_key",
+  "admin_email",
+  "auto_ontology_ref",
+  "secrets_section",
+  "kit_postgres_password",
+  "kit_admin_password",
+  "kit_auth_secret",
   "last_run_section",
   "last_run_on",
   "last_run_summary"
@@ -99,6 +119,133 @@
    "label": "Replace Existing Definitions"
   },
   {
+   "default": "1",
+   "description": "When pushing, also add this site's database as a connection in Auto Ontology (needed before the measures can be imported).",
+   "fieldname": "create_connection",
+   "fieldtype": "Check",
+   "label": "Add Database Connection"
+  },
+  {
+   "fieldname": "db_access_section",
+   "fieldtype": "Section Break",
+   "label": "Database Access for Auto Ontology",
+   "description": "Auto Ontology reads this site's database with its own read-only user. Create it with: bench --site <site> ontology-readonly-user"
+  },
+  {
+   "default": "host.docker.internal",
+   "description": "How the Auto Ontology server reaches MariaDB. Use host.docker.internal when Auto Ontology runs in Docker on this same server; otherwise the database server's private IP.",
+   "fieldname": "ro_db_host",
+   "fieldtype": "Data",
+   "label": "Database Host (as seen by Auto Ontology)"
+  },
+  {
+   "default": "3306",
+   "fieldname": "ro_db_port",
+   "fieldtype": "Int",
+   "label": "Database Port"
+  },
+  {
+   "fieldname": "column_break_db",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "ontology_ro",
+   "fieldname": "ro_db_user",
+   "fieldtype": "Data",
+   "label": "Read-only User"
+  },
+  {
+   "description": "Set automatically by the bench command.",
+   "fieldname": "ro_db_password",
+   "fieldtype": "Password",
+   "label": "Read-only Password",
+   "length": 200
+  },
+  {
+   "fieldname": "ai_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Ontology Server Kit",
+   "description": "Used only to generate the server kit (.env for Auto Ontology). Keys are stored encrypted."
+  },
+  {
+   "default": "NVIDIA (build.nvidia.com)",
+   "fieldname": "llm_provider",
+   "fieldtype": "Select",
+   "label": "Chat Model Provider",
+   "options": "NVIDIA (build.nvidia.com)\nGoogle Gemini\nOther OpenAI-compatible"
+  },
+  {
+   "fieldname": "llm_endpoint",
+   "fieldtype": "Data",
+   "label": "Chat Model Endpoint",
+   "default": "https://integrate.api.nvidia.com/v1"
+  },
+  {
+   "fieldname": "llm_model",
+   "fieldtype": "Data",
+   "label": "Chat Model Name",
+   "default": "nvidia/nemotron-3.5-lightning-30b-a3b"
+  },
+  {
+   "fieldname": "llm_api_key",
+   "fieldtype": "Password",
+   "label": "Chat Model API Key",
+   "length": 500
+  },
+  {
+   "fieldname": "column_break_ai",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Required. Auto Ontology's search index is built for NVIDIA's embedding model. Free key at build.nvidia.com.",
+   "fieldname": "nvidia_api_key",
+   "fieldtype": "Password",
+   "label": "NVIDIA API Key (embeddings)",
+   "length": 500
+  },
+  {
+   "description": "Login for the Auto Ontology admin user. Its password is generated and written to the kit's .env.",
+   "fieldname": "admin_email",
+   "fieldtype": "Data",
+   "label": "Auto Ontology Admin Email",
+   "options": "Email"
+  },
+  {
+   "default": "main",
+   "description": "Git branch, tag or commit of NVIDIA/auto-ontology to deploy. Pin a commit once a version works for you.",
+   "fieldname": "auto_ontology_ref",
+   "fieldtype": "Data",
+   "label": "Auto Ontology Version"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "secrets_section",
+   "fieldtype": "Section Break",
+   "label": "Generated Server Secrets",
+   "description": "Created on the first kit download and reused after, so downloading again does not break a running server."
+  },
+  {
+   "fieldname": "kit_postgres_password",
+   "fieldtype": "Password",
+   "label": "Auto Ontology Postgres Password",
+   "read_only": 1,
+   "length": 200
+  },
+  {
+   "fieldname": "kit_admin_password",
+   "fieldtype": "Password",
+   "label": "Auto Ontology Admin Password",
+   "read_only": 1,
+   "length": 200
+  },
+  {
+   "fieldname": "kit_auth_secret",
+   "fieldtype": "Password",
+   "label": "Auto Ontology Auth Secret",
+   "read_only": 1,
+   "length": 200
+  },
+  {
    "collapsible": 1,
    "fieldname": "last_run_section",
    "fieldtype": "Section Break",
@@ -120,7 +267,7 @@
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-05 10:30:00.000000",
+ "modified": "2026-11-05 11:30:00.000000",
  "modified_by": "Administrator",
  "module": "Ontology",
  "name": "Ontology Export Settings",

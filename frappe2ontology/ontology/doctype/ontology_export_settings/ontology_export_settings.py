@@ -24,3 +24,17 @@ class OntologyExportSettings(Document):
                 frappe.throw(_("DocType {0} does not exist").format(frappe.bold(name)))
         if self.auto_ontology_url:
             self.auto_ontology_url = self.auto_ontology_url.strip().rstrip("/")
+            if not re.match(r"^https?://[^/\s]+", self.auto_ontology_url):
+                frappe.throw(_("Auto Ontology URL must start with https:// or http://"))
+            if re.search(r"generativelanguage\.googleapis\.com|api\.openai\.com|integrate\.api\.nvidia\.com",
+                         self.auto_ontology_url):
+                frappe.throw(
+                    _(
+                        "Auto Ontology URL is the address of your Auto Ontology server, not of an AI "
+                        "model. Put model endpoints under Auto Ontology Server Kit."
+                    )
+                )
+        if not self.admin_email and frappe.session.user not in ("Administrator", "Guest"):
+            self.admin_email = frappe.session.user
+        if not self.ro_db_port:
+            self.ro_db_port = int(frappe.conf.db_port or 3306)

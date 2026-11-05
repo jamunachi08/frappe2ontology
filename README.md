@@ -33,46 +33,98 @@ bench --site <your-site> install-app frappe2ontology
 Tested on Frappe 15.126 with ERPNext 15.124. The app declares Frappe
 `>=15,<17`.
 
-### Use
+### Setup, start to finish
 
-Open **Ontology Export Settings** (search the awesome bar). System Manager only.
+Open **Ontology Export Settings** (search the awesome bar). It is for System
+Managers only. The blue note at the top repeats these steps.
 
-1. Pick the **Modules** to export, one per line. The default is Selling,
-   Buying, Accounts, Stock and Setup. Child tables come along automatically.
-   Employee and other personal-data DocTypes are excluded unless you add them
-   under **Also Include DocTypes**.
-2. Save, then click **Preview** to see how many terms, columns and joins the
-   model will have.
-3. Either:
-   * click **Download Model** and import the YAML in Auto Ontology under
-     **Settings → Import / Export**; or
-   * set **Auto Ontology URL** and **API Token**, then click
-     **Push to Auto Ontology**. This calls `POST /api/model/import`. Leave
-     **Replace Existing Definitions** off unless you want Auto Ontology edits
-     for this database discarded.
+**1. Choose what to export.** List the **Modules**, one per line. The default
+is Selling, Buying, Accounts, Stock and Setup; child tables come along
+automatically. Employee and other personal-data DocTypes stay out unless you
+add them under **Also Include DocTypes**. Save, then click
+**Model → Preview** to see the size.
 
-From the command line on the bench:
+**2. Fill in the server details and download the kit.**
+
+* **Auto Ontology URL**: the address people will open, e.g.
+  `https://ontology.example.com`. This is your Auto Ontology server, not an AI
+  model endpoint. An `https://` domain gets an automatic Let's Encrypt
+  certificate.
+* **Chat Model Provider**: NVIDIA, Google Gemini, or any OpenAI-compatible
+  endpoint, with its **API Key**.
+* **NVIDIA API Key**: required for embeddings. It's free at
+  build.nvidia.com.
+* **Admin Email**.
+
+Then click **Setup → Download Server Kit**. Copy the zip to the server that
+will run Auto Ontology (Docker + Compose v2) and run:
+
+```bash
+unzip auto-ontology-kit.zip -d auto-ontology-kit && cd auto-ontology-kit
+chmod 600 .env && ./setup.sh
+```
+
+The kit is NVIDIA's compose stack, hardened:
+
+* only the web app is published;
+* the backend, ingestion service and Postgres are internal;
+* pgAdmin is removed;
+* passwords are generated once and reused when you download again.
+
+`README.txt` in the kit covers DNS, firewall and MariaDB `bind-address`.
+
+**3. Create the read-only database user** on the ERPNext server:
+
+```bash
+bench --site <your-site> ontology-readonly-user
+```
+
+It grants `SELECT` on exactly the exported tables. It cannot write, and it
+cannot read `__Auth` or anything outside the model. It saves the password in
+the settings. Re-run it after changing the modules. `--print-sql` prints the
+SQL for a DBA instead, for example on Frappe Cloud, where you have no root
+access.
+
+Set **Database Host (as seen by Auto Ontology)**:
+
+* `host.docker.internal` when Auto Ontology runs on this same server. MariaDB
+  must then also listen on the Docker bridge
+  (`bind-address = 127.0.0.1,172.17.0.1`).
+* Otherwise, the database server's private IP.
+
+**4. Connect.** Sign in to Auto Ontology and create an API token (user menu →
+API Tokens). Paste it into **API Token**, Save, and click
+**Setup → Check Setup**. Each line shows ✅, ⚠️ or ❌ with what to fix:
+
+* the model builds;
+* the read-only user can read and only read;
+* MariaDB is reachable from Docker;
+* Auto Ontology is up;
+* the token works;
+* the connection exists;
+* the model is imported.
+
+**5. Push to Auto Ontology.** This runs in the background and sends you a
+message when done. It works in three steps, because Auto Ontology checks each
+measure's SQL against the database connection:
+
+1. import the schema and terms;
+2. add the MariaDB connection, limited to the exported tables;
+3. import the measures.
+
+Pushing again is safe: existing items are skipped. Keep **Replace Existing
+Definitions** off unless you want edits made in Auto Ontology discarded.
+Keep Auto Ontology's *Semantic Compilation* off for the first pilot.
+
+**Without a push:** **Model → Download Model** gives a zip with the two
+import files and `HOW-TO-IMPORT.txt`.
+
+From the bench command line:
 
 ```bash
 bench --site <your-site> execute frappe2ontology.api.export_to_file --kwargs "{'path': '/tmp/model.yaml'}"
+bench --site <your-site> execute frappe2ontology.api.push
 ```
-
-### Connecting Auto Ontology to the site safely
-
-Auto Ontology runs AI-written SQL, and its main path does not check that the
-SQL is read-only. Give it a **SELECT-only** database user, never the site's
-own user:
-
-```sql
-CREATE USER 'ontology_ro'@'%' IDENTIFIED BY '<strong password>';
-GRANT SELECT ON `<db_name>`.* TO 'ontology_ro'@'%';
-```
-
-`db_name` is in `sites/<site>/site_config.json`, and **Preview** shows it too.
-The model's database name must match the one in Auto Ontology's connection
-string. Import the model on a fresh Auto Ontology *before* adding the
-connection, so ingestion adopts the imported catalog by table and column name.
-Set the connection's `table_allow_regex` to the exported tables.
 
 ### Measures
 
@@ -101,22 +153,39 @@ frappe2ontology --site-db "mysql://ontology_ro:<pw>@<host>:3306/<db_name>" --mod
 
 ### Tests
 
-* On a site: `bench --site <site> run-tests --app frappe2ontology`. These
-  check that the model matches the live schema, that every measure runs,
-  that custom fields and property setters are picked up, and that download
-  and push work against a mock Auto Ontology.
-* Standalone: `dev_tests/`. These build a fake site in MariaDB with known
-  transactions and check that the measures return correct totals and that
-  the output validates against Auto Ontology's own import schema. The
-  environment variables are listed in `dev_tests/test_end_to_end.py`.
+* On a site, run `bench --site <site> run-tests --app frappe2ontology`.
+  These tests cover:
+  * the model against the live schema;
+  * every measure running;
+  * custom fields and property setters;
+  * the download zip;
+  * the server kit's contents and that its secrets stay the same across
+    downloads;
+  * the read-only user's grants;
+  * the checklist;
+  * the three-step push, against a fake Auto Ontology.
+
+  Optional environment variables enable two more tests:
+  * `F2O_DB_ROOT_PASSWORD` creates a real read-only user;
+  * `F2O_AO_URL` (plus `F2O_AO_DB_HOST`/`F2O_AO_DB_PORT`) pushes to a real
+    Auto Ontology.
+* Standalone tests are in `dev_tests/`; see the docstring in
+  `dev_tests/test_end_to_end.py`.
+
+Tested on Frappe 15.126 + ERPNext 15.124, MariaDB 10.11. The push was also
+tested against a real Auto Ontology backend on Postgres 16 + pgvector, with
+embeddings off. It imported 252 terms, added the connection and imported
+17 measures, and a second push changed nothing.
 
 ### Not yet verified
 
-* A push to a running Auto Ontology. The push was tested against a mock of
-  its import endpoint, and the YAML validates against its import schema.
-* How Auto Ontology's Semantic Compilation treats an imported model. Keep it
-  off for the first pilot.
+* The Docker kit on a real server. The compose file validates with
+  `docker compose config`, but this test environment could not pull images
+  from Docker Hub.
+* Embeddings and chat answers, which need real model API keys.
+* Gemini as the chat model. Auto Ontology accepts OpenAI-compatible
+  endpoints, but it was developed against NVIDIA models.
 
 ### License
 
-Apache-2.0
+Apache-2.0. The server kit builds NVIDIA Auto Ontology (Apache-2.0).

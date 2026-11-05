@@ -1,0 +1,6 @@
+# HTTPS in front of Auto Ontology. Caddy gets and renews the certificate
+# itself; DOMAIN must point at this server and ports 80/443 must be open.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy auto-ontology-frontend:3000
+}
