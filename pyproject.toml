@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frappe2ontology"
+version = "0.1.0"
+description = "Export Frappe/ERPNext DocType metadata as an NVIDIA Auto Ontology model"
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6", "mysql-connector-python>=8"]
+
+[project.optional-dependencies]
+test = ["pytest", "sqlglot", "pydantic>=2"]
+
+[project.scripts]
+frappe2ontology = "frappe2ontology.cli:main"
+
+[tool.setuptools]
+packages = ["frappe2ontology"]
